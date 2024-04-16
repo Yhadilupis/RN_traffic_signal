@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clasificador de señales de transito</title>
+    <style>
+        .navbar {
+             padding: 2px;
+             background-color: rgb(12, 49, 18);
+        }
+
+        .container {
+             margin: 0;
+             padding: 0;
+             width: 100%;
+             height: 100vh;
+             background-color: #E2D8F8;
+             color: white;
+             text-align: center;
+             align-items: center;
+        }
+
+        #video {
+             margin-top: 15px;
+             max-width: 100%;
+             margin-bottom: 20px; 
+        }
+
+        .result-text {
+            font-family: Arial, sans-serif;
+            font-size: 16px;
+            color: #333; 
+            margin-bottom: 10px; 
+        }
+
+        .class-text {
+            font-weight: bold; 
+            color: #007bff; 
+        }
+
+        .probability-text {
+            color: #28a745; 
+        }
+   </style>
+</head>
+<body class="container">
+    <div class="navbar">
+        <h1>Señales de transito</h1>
+    </div>
+    
+    <div>
+        <video id="video" width="640" height="480" autoplay></video>
+    </div>
+    <div id="result"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.1.2/socket.io.js"></script>
+    <script>
+        var socket = io.connect('http://' + document.domain + ':' + location.port);
+
+        socket.on('connect', function() {
+            console.log('Connected');
+        });
+
+        socket.on('classification', function(data) {
+            var resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <p class="result-text">Prediccion: <span class="class-text">${data.class}</span></p>
+                <p class="result-text">Probabilidad: <span class="probability-text">${data.probability}%</span></p>
+                <!--<p class="result-text">Probabilidad: <span class="probability-text">${data.probability}%</span></p>-->
+            `;
+        });
+
+        const video = document.getElementById('video');
+
+        if (navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(stream) {
+                    video.srcObject = stream;
+                })
+                .catch(function(err0r) {
+                    console.log("Something went wrong!");
+                });
+        }
+
+        setInterval(() => {
+            var canvas = document.createElement('canvas');
+            var ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            var image = canvas.toDataURL('image/jpeg');
+            
+            // Convertir la imagen a un array de bytes
+            var byteCharacters = atob(image.split(',')[1]);
+            var byteNumbers = new Array(byteCharacters.length);
+            for (var i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            var byteArray = new Uint8Array(byteNumbers);
+
+            socket.emit('image', byteArray.buffer);
+        }, 1000);
+    </script>
+</body>
+</html>
